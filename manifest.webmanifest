@@ -1,0 +1,13 @@
+{
+  "name": "11+ Mock Tests",
+  "short_name": "11+ Tests",
+  "description": "Timed 11+ mock tests for Kent (GL) and Bexley (Quest) — English, Maths, Verbal & Non-Verbal Reasoning.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#1b1f3b",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
