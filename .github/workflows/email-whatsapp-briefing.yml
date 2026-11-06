@@ -1,0 +1,68 @@
+name: Email daily 11+ WhatsApp briefing
+
+on:
+  push:
+    paths:
+      - "community/whatsapp-daily/*.md"
+      - ".github/workflows/email-whatsapp-briefing.yml"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Briefing date (YYYY-MM-DD). Leave blank for the latest file."
+        required: false
+
+jobs:
+  email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Send briefing to balaji@prepticks.co.uk
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          BRIEFING_DATE: ${{ inputs.date }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RESEND_API_KEY:-}" ]; then
+            echo "RESEND_API_KEY is not set. Skipping email. Copy community/whatsapp-daily/*.md instead."
+            exit 0
+          fi
+          if [ -n "${BRIEFING_DATE:-}" ]; then
+            FILE="community/whatsapp-daily/${BRIEFING_DATE}.md"
+          else
+            FILE="$(ls -1 community/whatsapp-daily/20*.md | sort | tail -n 1)"
+          fi
+          if [ ! -f "$FILE" ]; then
+            echo "No briefing file found: ${FILE:-}"
+            exit 1
+          fi
+          export FILE
+          python3 <<'PY'
+          import json, os, pathlib, re, urllib.request
+
+          path = pathlib.Path(os.environ["FILE"])
+          text = path.read_text(encoding="utf-8")
+          match = re.search(r"---BEGIN WHATSAPP---\n(.*)\n---END WHATSAPP---", text, re.S)
+          body = match.group(1).strip() if match else text
+          subject = "PrepTicks Daily 11+ Update"
+          for line in text.splitlines():
+              if line.startswith("**Subject:**"):
+                  subject = line.split("**Subject:**", 1)[1].strip()
+                  break
+          payload = {
+              "from": "PrepTicks Briefing <briefing@prepticks.co.uk>",
+              "to": ["balaji@prepticks.co.uk"],
+              "subject": subject,
+              "text": body,
+          }
+          req = urllib.request.Request(
+              "https://api.resend.com/emails",
+              data=json.dumps(payload).encode(),
+              headers={
+                  "Authorization": f"Bearer {os.environ['RESEND_API_KEY']}",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(req) as resp:
+              print(resp.read().decode())
+          PY
